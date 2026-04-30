@@ -1,4 +1,5 @@
 from collections import defaultdict
+import string
 epsilon = 'ε'
 
 class State:
@@ -51,3 +52,49 @@ def kleene_star_nfa(nfa: NFA) -> NFA:
   nfa.accept_state.is_accept = False
   
   return NFA(new_start, new_accept)
+
+
+def build_char_union(chars: str) -> str:
+  return '|'.join(chars)
+
+SPACE_CHAR = " "
+LETTER_RE = build_char_union(string.ascii_letters)
+DIGIT_RE = build_char_union(string.digits)
+ID_RE = f"{LETTER_RE}.({LETTER_RE}|{DIGIT_RE}|_)*"
+INT_RE = f"{DIGIT_RE}.{DIGIT_RE}*"
+FRAC_RE = f"\\.{DIGIT_RE}.{DIGIT_RE}*"
+NUM_RE = f"({INT_RE})|(({INT_RE}).({FRAC_RE}))"
+SPACE_RE = f"{SPACE_CHAR}.{SPACE_CHAR}*"
+
+TOKEN_REGEX = [
+  ("SPACE", SPACE_RE),
+  ("KW_IF", "i.f"),
+  ("KW_THEN", "t.h.e.n"),
+  ("KW_ELSE", "e.l.s.e"),
+  ("KW_WHILE", "w.h.i.l.e"),
+  ("KW_RETURN", "r.e.t.u.r.n"),
+  ("KW_FOR", "f.o.r"),
+  ("KW_BREAK", "b.r.e.a.k"),
+  ("KW_CONTINUE", "c.o.n.t.i.n.u.e"),
+  ("KW_INT", "i.n.t"),
+  ("KW_FLOAT", "f.l.o.a.t"),
+  ("ID", ID_RE),
+  ("NUM", NUM_RE),
+  ("EQ", "=.="),
+  ("NEQ", "!.="),
+  ("LTE", "<.="),
+  ("GTE", ">.="),
+  ("ASSIGN", "="),
+  ("OP_PLUS", "+"),
+  ("OP_MINUS", "-"),
+  ("OP_MULT", "\\*"),
+  ("OP_DIV", "/"),
+  ("LT", "<"),
+  ("GT", ">"),
+  ("LPAREN", "\\("),
+  ("RPAREN", "\\)"),
+  ("LBRACE", "{"),
+  ("RBRACE", "}"),
+  ("SEMI", ";"),
+  ("COMMA", ",")
+]
