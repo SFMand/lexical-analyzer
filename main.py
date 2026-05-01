@@ -102,8 +102,14 @@ def infix_to_postfix(regex: str) -> str:
   output = []
   stack = []
   
-  for char in regex:
-    if char.isalnum() or char == epsilon:
+  i = 0
+  while i < len(regex):
+    char = regex[i]
+    if char == '\\' and i + 1 < len(regex):
+      output.append(regex[i + 1])
+      i += 2
+      continue
+    if char.isalnum() or char == epsilon or char in {'_', ' '}:
       output.append(char)
     elif char in precedence:
       while (stack and stack[-1] != '(' and precedence[stack[-1]] >= precedence[char]):
@@ -114,7 +120,11 @@ def infix_to_postfix(regex: str) -> str:
     elif char == ')':
       while stack and stack[-1] != '(':
         output.append(stack.pop())
-      stack.pop() # pop '('
+      if stack and stack[-1] == '(':
+        stack.pop()
+    else:
+      output.append(char)
+    i += 1
   
   while stack:
     output.append(stack.pop())
