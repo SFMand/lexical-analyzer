@@ -60,14 +60,12 @@ def build_char_union(chars: str) -> str:
 SPACE_CHAR = " "
 LETTER_RE = build_char_union(string.ascii_letters)
 DIGIT_RE = build_char_union(string.digits)
-ID_RE = f"{LETTER_RE}.({LETTER_RE}|{DIGIT_RE}|_)*"
 INT_RE = f"{DIGIT_RE}.{DIGIT_RE}*"
 FRAC_RE = f"\\.{DIGIT_RE}.{DIGIT_RE}*"
-NUM_RE = f"({INT_RE})|(({INT_RE}).({FRAC_RE}))"
 SPACE_RE = f"{SPACE_CHAR}.{SPACE_CHAR}*"
 
 TOKEN_REGEX = [
-  ("SPACE", SPACE_RE),
+  ("SPACE", f"{SPACE_CHAR}.{SPACE_CHAR}*"),
   ("KW_IF", "i.f"),
   ("KW_THEN", "t.h.e.n"),
   ("KW_ELSE", "e.l.s.e"),
@@ -78,8 +76,8 @@ TOKEN_REGEX = [
   ("KW_CONTINUE", "c.o.n.t.i.n.u.e"),
   ("KW_INT", "i.n.t"),
   ("KW_FLOAT", "f.l.o.a.t"),
-  ("ID", ID_RE),
-  ("NUM", NUM_RE),
+  ("ID", f"{LETTER_RE}.({LETTER_RE}|{DIGIT_RE}|_)*"),
+  ("NUM",  f"({INT_RE})|(({INT_RE}).({FRAC_RE}))"),
   ("EQ", "=.="),
   ("NEQ", "!.="),
   ("LTE", "<.="),
@@ -98,3 +96,27 @@ TOKEN_REGEX = [
   ("SEMI", ";"),
   ("COMMA", ",")
 ]
+
+def infix_to_postfix(regex: str) -> str:
+  precedence = {'*': 3, '.': 2, '|': 1}
+  output = []
+  stack = []
+  
+  for char in regex:
+    if char.isalnum() or char == epsilon:
+      output.append(char)
+    elif char in precedence:
+      while (stack and stack[-1] != '(' and precedence[stack[-1]] >= precedence[char]):
+        output.append(stack.pop())
+      stack.append(char)
+    elif char == '(':
+      stack.append(char)
+    elif char == ')':
+      while stack and stack[-1] != '(':
+        output.append(stack.pop())
+      stack.pop() # pop '('
+  
+  while stack:
+    output.append(stack.pop())
+  
+  return ''.join(output)
