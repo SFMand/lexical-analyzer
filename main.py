@@ -120,3 +120,24 @@ def infix_to_postfix(regex: str) -> str:
     output.append(stack.pop())
   
   return ''.join(output)
+
+def regex_to_nfa(regex: str) -> NFA:
+  stack = []
+  postfix_regex = infix_to_postfix(regex)
+  
+  for char in postfix_regex:
+    if char.isalnum() or char == epsilon:
+      stack.append(single_char_nfa(char))
+    elif char == '|':
+      nfa2 = stack.pop()
+      nfa1 = stack.pop()
+      stack.append(union_nfa(nfa1, nfa2))
+    elif char == '*':
+      stack.append(kleene_star_nfa(stack.pop())) 
+    elif char == '.':
+      nfa2 = stack.pop()
+      nfa1 = stack.pop()
+      stack.append(concat_nfa(nfa1, nfa2))
+      
+  return stack.pop()
+  
