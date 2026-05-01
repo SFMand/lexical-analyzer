@@ -55,7 +55,7 @@ def kleene_star_nfa(nfa: NFA) -> NFA:
 
 
 def build_char_union(chars: str) -> str:
-  return '|'.join(chars)
+  return f"({'|'.join(chars)})"
 
 SPACE_CHAR = " "
 LETTER_RE = build_char_union(string.ascii_letters)
@@ -150,4 +150,14 @@ def regex_to_nfa(regex: str) -> NFA:
       stack.append(concat_nfa(nfa1, nfa2))
       
   return stack.pop()
-  
+
+def build_final_nfa(token_regex_list: list[tuple[str, str]]):
+  final_nfa = None
+  for _, regex in token_regex_list:
+    nfa = regex_to_nfa(regex)
+    if final_nfa == None:
+      final_nfa = nfa
+    else:
+      final_nfa = union_nfa(final_nfa, nfa)  
+      
+  return final_nfa     
