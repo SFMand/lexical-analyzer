@@ -184,40 +184,39 @@ def explicit_concat(tokens: list[tuple[str, str]]):
   return result
 
 
-def infix_to_postfix(regex: str) -> str:
-  precedence = {'*': 3, '.': 2, '|': 1}
+def infix_to_postfix(regex: str):
+  precedence = {'*': 3, '+': 3, '?': 3,
+                '.': 2,
+                '|': 1,
+                '(': 0}
+  
   output = []
   stack = []
+  tokens = explicit_concat(tokenize_regex(regex))
   
-  i = 0
-  while i < len(regex):
-    char = regex[i]
-    if char == '\\' and i + 1 < len(regex):
-      output.append(regex[i + 1])
-      i += 2
+  for token in tokens:
+    token_type, token_char = token
+    
+    if token_type == 'LITERAL':
+      output.append(token)
+    elif token_type == 'LPAREN_OP':
+      stack.append(token)
+    elif token_type == 'RPAREN':
+      while stack and stack[-1][0] != 'LPAREN_OP':
+        output.append(stack.pop())  
+      stack.pop() # remove left parantheses
+      
+    elif token_type == 'OP':
+      while stack and precedence.get(stack[-1][1], -1) >= precedence[token_char]:
+        output.append(stack.pop())
+      stack.append(token)
       continue
-    if char.isalnum() or char == epsilon or char in {'_', ' '}:
-      output.append(char)
-    elif char in precedence:
-      while (stack and stack[-1] != '(' and precedence[stack[-1]] >= precedence[char]):
-        output.append(stack.pop())
-      stack.append(char)
-    elif char == '(':
-      stack.append(char)
-    elif char == ')':
-      while stack and stack[-1] != '(':
-        output.append(stack.pop())
-      if stack and stack[-1] == '(':
-        stack.pop()
-    else:
-      output.append(char)
-    i += 1
-  
+     
   while stack:
-    output.append(stack.pop())
+    output.append(stack.pop())  
+  return output
   
-  return ''.join(output)
-
+  
 def regex_to_nfa(regex: str) -> NFA:
   stack = []
   postfix_regex = infix_to_postfix(regex)
