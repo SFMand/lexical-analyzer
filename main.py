@@ -3,7 +3,9 @@ import string
 epsilon = 'ε'
 
 class State:
-  def __init__(self, accept_status = False):
+  def __init__(self,token_id = None, token_priority = None, accept_status = False):
+    self.token_id = token_id
+    self.token_priority = token_priority
     self.transistions: dict[str, set['State']] = defaultdict(set) # dict -> key: symbol | value: set of states
     self.is_accept: bool = accept_status
 
@@ -79,6 +81,7 @@ DIGIT_RE = "[0-9]"
 
 TOKEN_REGEX = [
   ("SPACE", f"{SPACE_CHAR}+"),
+
   ("KW_IF", "if"),
   ("KW_THEN", "then"),
   ("KW_ELSE", "else"),
@@ -89,12 +92,15 @@ TOKEN_REGEX = [
   ("KW_CONTINUE", "continue"),
   ("KW_INT", "int"),
   ("KW_FLOAT", "float"),
+  
   ("ID", f"{LETTER_RE}({LETTER_RE}|{DIGIT_RE}|_)*"),
   ("NUM",  f"{DIGIT_RE}+(\\.{DIGIT_RE}+)?"),
+  
   ("EQ", "=="),
   ("NEQ", "!="),
   ("LTE", "<="),
   ("GTE", ">="),
+  
   ("ASSIGN", "="),
   ("OP_PLUS", "\\+"),
   ("OP_MINUS", "-"),
@@ -244,12 +250,21 @@ def regex_to_nfa(regex: str) -> NFA:
 
 
 def build_final_nfa(token_regex_list: list[tuple[str, str]]):
-  final_nfa = None
-  for _, regex in token_regex_list:
+  start_state = State()
+  for priority, (id, regex) in enumerate(token_regex_list):
     nfa = regex_to_nfa(regex)
-    if final_nfa == None:
-      final_nfa = nfa
-    else:
-      final_nfa = union_nfa(final_nfa, nfa)  
-      
-  return final_nfa     
+    nfa.accept_state.token_id = id
+    nfa.accept_state.token_priority = priority
+    start_state.transistions[epsilon].add(nfa.start_state)
+    
+  return NFA(start_state, State(accept_status=False))     
+
+
+
+
+def main():
+  nfa = build_final_nfa(TOKEN_REGEX)
+  
+  with open("input.txt", "r") as file:
+    text = file.read()
+  # scan input.txt file from DFA    
