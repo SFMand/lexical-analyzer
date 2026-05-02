@@ -73,36 +73,30 @@ def optional_nfa(nfa: NFA) -> NFA:
   return union_nfa(nfa, epsilon_nfa())
 
 
-def build_char_union(chars: str) -> str:
-  return f"({'|'.join(chars)})"
-
 SPACE_CHAR = " "
-LETTER_RE = build_char_union(string.ascii_letters)
-DIGIT_RE = build_char_union(string.digits)
-INT_RE = f"{DIGIT_RE}.{DIGIT_RE}*"
-FRAC_RE = f"\\.{DIGIT_RE}.{DIGIT_RE}*"
-SPACE_RE = f"{SPACE_CHAR}.{SPACE_CHAR}*"
+LETTER_RE = "[A-Za-z]"
+DIGIT_RE = "[0-9]"
 
 TOKEN_REGEX = [
-  ("SPACE", f"{SPACE_CHAR}.{SPACE_CHAR}*"),
-  ("KW_IF", "i.f"),
-  ("KW_THEN", "t.h.e.n"),
-  ("KW_ELSE", "e.l.s.e"),
-  ("KW_WHILE", "w.h.i.l.e"),
-  ("KW_RETURN", "r.e.t.u.r.n"),
-  ("KW_FOR", "f.o.r"),
-  ("KW_BREAK", "b.r.e.a.k"),
-  ("KW_CONTINUE", "c.o.n.t.i.n.u.e"),
-  ("KW_INT", "i.n.t"),
-  ("KW_FLOAT", "f.l.o.a.t"),
-  ("ID", f"{LETTER_RE}.({LETTER_RE}|{DIGIT_RE}|_)*"),
-  ("NUM",  f"({INT_RE})|(({INT_RE}).({FRAC_RE}))"),
-  ("EQ", "=.="),
-  ("NEQ", "!.="),
-  ("LTE", "<.="),
-  ("GTE", ">.="),
+  ("SPACE", f"{SPACE_CHAR}+"),
+  ("KW_IF", "if"),
+  ("KW_THEN", "then"),
+  ("KW_ELSE", "else"),
+  ("KW_WHILE", "while"),
+  ("KW_RETURN", "return"),
+  ("KW_FOR", "for"),
+  ("KW_BREAK", "break"),
+  ("KW_CONTINUE", "continue"),
+  ("KW_INT", "int"),
+  ("KW_FLOAT", "float"),
+  ("ID", f"{LETTER_RE}({LETTER_RE}|{DIGIT_RE}|_)*"),
+  ("NUM",  f"{DIGIT_RE}+(\\.{DIGIT_RE}+)?"),
+  ("EQ", "=="),
+  ("NEQ", "!="),
+  ("LTE", "<="),
+  ("GTE", ">="),
   ("ASSIGN", "="),
-  ("OP_PLUS", "+"),
+  ("OP_PLUS", "\\+"),
   ("OP_MINUS", "-"),
   ("OP_MULT", "\\*"),
   ("OP_DIV", "/"),
@@ -110,8 +104,8 @@ TOKEN_REGEX = [
   ("GT", ">"),
   ("LPAREN", "\\("),
   ("RPAREN", "\\)"),
-  ("LBRACE", "{"),
-  ("RBRACE", "}"),
+  ("LBRACE", "\\{"),
+  ("RBRACE", "\\}"),
   ("SEMI", ";"),
   ("COMMA", ",")
 ]
