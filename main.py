@@ -219,23 +219,29 @@ def infix_to_postfix(regex: str):
   
 def regex_to_nfa(regex: str) -> NFA:
   stack = []
-  postfix_regex = infix_to_postfix(regex)
   
-  for char in postfix_regex:
-    if char.isalnum() or char == epsilon:
-      stack.append(single_char_nfa(char))
-    elif char == '|':
+  
+  for token_type, token_char in infix_to_postfix(regex):
+    
+    if token_type == 'LITERAL':
+      stack.append(single_char_nfa(token_char))
+    elif token_char == '|':
       nfa2 = stack.pop()
       nfa1 = stack.pop()
       stack.append(union_nfa(nfa1, nfa2))
-    elif char == '*':
-      stack.append(kleene_star_nfa(stack.pop())) 
-    elif char == '.':
+    elif token_char == '*':
+      stack.append(kleene_star_nfa(stack.pop()))
+    elif token_char == '+':
+      stack.append(plus_nfa(stack.pop()))
+    elif token_char == '?':
+      stack.append(optional_nfa(stack.pop()))
+    elif token_char == '.':
       nfa2 = stack.pop()
       nfa1 = stack.pop()
       stack.append(concat_nfa(nfa1, nfa2))
       
   return stack.pop()
+
 
 def build_final_nfa(token_regex_list: list[tuple[str, str]]):
   final_nfa = None
