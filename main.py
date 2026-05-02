@@ -110,6 +110,11 @@ TOKEN_REGEX = [
   ("COMMA", ",")
 ]
 
+TOKEN_OP_MAP = {
+    '(': 'LPAREN_OP', ')': 'RPAREN_OP',
+    '|': 'OP', '*': 'OP', '+': 'OP', '?': 'OP', '.': 'OP'
+}
+
 def expand_char_class(regex: str):
   chars = []
   i = 0
@@ -125,10 +130,58 @@ def expand_char_class(regex: str):
      chars.append(regex[i])
      i += 1
       
-  return chars   
+  return chars
+
+def tokenize_regex(regex: str):
+  tokens = []
+  i = 0
+  
+  while i < len(regex):
+    char = regex[i]
+    
+    if char == '\\' and i + 1 < len(regex):
+      tokens.append(("LITERAL", regex[i + 1]))
+      i += 2
+      continue
+    
+    if char == '[':
+      end_idx = regex.find(']', i + 1)
+      expanded_class = expand_char_class(regex[i + 1:end_idx])
+      
+      tokens.append(("LPAREN_OP", "("))
+      for index, ch in enumerate(expanded_class):
+        if index > 0:
+          tokens.append(("OP", "|"))
+        tokens.append(("LITERAL", ch))
+      tokens.append(("RPAREN_OP", ")"))
+      i = end_idx + 1
+      continue
+    
+    token_type = TOKEN_OP_MAP.get(char,"LITERAL")
+    tokens.append((token_type, char))
+    i += 1
+    
+  return tokens   
 
 def explicit_concat(tokens: list[tuple[str, str]]):
-  pass
+  result = [tokens[0]]
+  
+  for token in tokens[1:]:
+    prev_type, prev_char = result[-1]
+    curr_type, _ = token
+        
+    # implicit concat happens after: a Literal, ')', or a */+/?
+    prev_valid = prev_type in {"LITERAL", "RPAREN_OP"} or (prev_type == "OP" and prev_char in {"*", "+", "?"})
+        
+    # implicit concat happens before a Literal or '('
+    curr_valid = curr_type in {"LITERAL", "LPAREN_OP"}
+        
+    if prev_valid and curr_valid:
+      result.append(("OP", "."))
+            
+    result.append(token)
+        
+  return result
 
 
 def infix_to_postfix(regex: str) -> str:
