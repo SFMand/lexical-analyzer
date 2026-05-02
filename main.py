@@ -110,6 +110,27 @@ TOKEN_REGEX = [
   ("COMMA", ",")
 ]
 
+def expand_char_class(regex: str):
+  chars = []
+  i = 0
+  while i < len(regex):
+   if regex[i] == '\\' and i + 1 < len(regex):
+    chars.append(regex[i + 1])
+    i += 2
+   elif i + 2 < len(regex) and regex[i + 1] == '-' and regex[i + 2] != ']':
+    start, end = ord(regex[i]), ord(regex[i + 2])
+    chars.extend(chr(unicode) for unicode in range(start, end))
+    i += 3
+   else:
+     chars.append(regex[i])
+     i += 1
+      
+  return chars   
+
+def explicit_concat(tokens: list[tuple[str, str]]):
+  pass
+
+
 def infix_to_postfix(regex: str) -> str:
   precedence = {'*': 3, '.': 2, '|': 1}
   output = []
