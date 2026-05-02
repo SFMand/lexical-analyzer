@@ -53,6 +53,25 @@ def kleene_star_nfa(nfa: NFA) -> NFA:
   
   return NFA(new_start, new_accept)
 
+def epsilon_nfa() -> NFA:
+  return single_char_nfa(epsilon)
+
+def plus_nfa(nfa: NFA) -> NFA:
+  new_start = State()
+  new_accept = State(accept_status=True)
+
+  new_start.transistions[epsilon].add(nfa.start_state)
+  
+  nfa.accept_state.transistions[epsilon].add(nfa.start_state)
+  nfa.accept_state.transistions[epsilon].add(new_accept)
+  nfa.accept_state.is_accept = False
+  
+  return NFA(new_start, new_accept)
+
+
+def optional_nfa(nfa: NFA) -> NFA:
+  return union_nfa(nfa, epsilon_nfa())
+
 
 def build_char_union(chars: str) -> str:
   return f"({'|'.join(chars)})"
