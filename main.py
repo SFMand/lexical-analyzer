@@ -258,18 +258,9 @@ def build_final_nfa(token_regex_list: list[tuple[str, str]]):
     start_state.transitions[epsilon].add(nfa.start_state)
     
   return NFA(start_state, State(accept_status=False))     
-# ─────────────────────────────────────────────────────────────
-# 5.  NFA → DFA  (Subset Construction [1 §3.7.1][3 §1.2])
-#
-# Key idea: each DFA state = a *set* of NFA states.
-# We use frozenset so we can store them in dicts/sets.
-# ─────────────────────────────────────────────────────────────
+
 
 def epsilon_closure(states):
-    """
-    Returns all NFA states reachable from 'states' via epsilon only.
-    Uses a simple stack-based search. [1 §3.7.1][3 §1.3]
-    """
     closure = set(states)
     stack   = list(states)
     while stack:
@@ -282,7 +273,6 @@ def epsilon_closure(states):
   
   
 def move(states, symbol):
-    """Returns all NFA states reachable from 'states' on one real symbol. (Transition table)"""
     result = set()
     for s in states:
         for target in s.transitions.get(symbol, []):
@@ -291,7 +281,6 @@ def move(states, symbol):
 
 
 def collect_alphabet(start):
-    """Walks the whole NFA to find every non-epsilon symbol used."""
     visited  = set()
     stack    = [start]
     alphabet = set()
@@ -310,11 +299,6 @@ def collect_alphabet(start):
 
 
 def winning_token(dfa_state):
-    """
-    Among all NFA accept states inside this DFA state, picks the one
-    with the lowest priority number (= earliest in TOKEN_LIST).
-    This implements the tie-breaking rule. [1 §3.8]
-    """
     best = None
     for nfa_state in dfa_state:
         if nfa_state.is_accept and nfa_state.token_name is not None:
@@ -326,21 +310,12 @@ def winning_token(dfa_state):
 
 
 def build_dfa(nfa_start):
-    """
-    Subset construction: converts NFA to DFA. [1 §3.7.1][3 §1.2]
-
-    Returns three things:
-      dfa_start       — the starting DFA state (a frozenset of NFA states)
-      dfa_transitions — dict: frozenset -> { symbol -> frozenset }
-      dfa_accept      — dict: frozenset -> (token_name, priority)
-    """
     alphabet  = collect_alphabet(nfa_start)
     dfa_start = epsilon_closure([nfa_start])
 
-    dfa_transitions = {}   # DFA state -> { symbol -> DFA state }
-    dfa_accept      = {}   # accepting DFA states -> their token
-
-    worklist = [dfa_start]  # STEP 2 IN AQIL ALGORITHM
+    dfa_transitions = {}   
+    dfa_accept      = {}   
+    worklist = [dfa_start]  
     visited  = set()
 
     while worklist:
@@ -351,16 +326,14 @@ def build_dfa(nfa_start):
 
         dfa_transitions[current] = {}
 
-        # check if this DFA state is accepting
         token_info = winning_token(current)
         if token_info:
             dfa_accept[current] = token_info
 
-        # compute one outgoing transition per symbol
         for sym in alphabet:
             next_nfa_states = move(current, sym)
             next_dfa_state  = epsilon_closure(next_nfa_states)
-            if next_dfa_state:  # empty set means dead state — skip
+            if next_dfa_state:  # empty set means sink state — skip
                 dfa_transitions[current][sym] = next_dfa_state
                 if next_dfa_state not in visited:
                     worklist.append(next_dfa_state)
@@ -368,17 +341,10 @@ def build_dfa(nfa_start):
     return dfa_start, dfa_transitions, dfa_accept
 
 
-# ─────────────────────────────────────────────────────────────
-# 6.  SCANNER  (Maximal-Munch DFA Simulation [1 §3.8])
-#
-# For each position in the input, we run the DFA as far as
-# possible and use the LAST accepting state we passed through.
-# This is the "maximal munch" (longest match) rule.
-# ─────────────────────────────────────────────────────────────
 
 def scan(text, dfa_start, dfa_transitions, dfa_accept):
     tokens = []
-    pos    = 0   # current position in text
+    pos    = 0
     line   = 1
     col    = 1
 
@@ -419,7 +385,6 @@ def scan(text, dfa_start, dfa_transitions, dfa_accept):
             print(f"{repr(lexeme):<15} {last_accept_token:<15} "
                   f"Line {start_line}, col {start_col}")
 
-        # advance the line/column counters by the matched lexeme
         for ch in lexeme:
             if ch == '\n':
                 line += 1
@@ -432,9 +397,6 @@ def scan(text, dfa_start, dfa_transitions, dfa_accept):
     return tokens
 
 
-# ─────────────────────────────────────────────────────────────
-# 7.  MAIN
-# ─────────────────────────────────────────────────────────────
 
 def main():
     # Step 1 — build one combined NFA from all token regexes
