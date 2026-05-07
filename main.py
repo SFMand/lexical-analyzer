@@ -3,10 +3,10 @@ import string
 epsilon = 'ε'
 
 class State:
-  def __init__(self,token_id = None, token_priority = None, accept_status = False):
-    self.token_id = token_id
+  def __init__(self,token_name = None, token_priority = None, accept_status = False):
+    self.token_name = token_name
     self.token_priority = token_priority
-    self.transistions: dict[str, set['State']] = defaultdict(set) # dict -> key: symbol | value: set of states
+    self.transitions: dict[str, set['State']] = defaultdict(set) # dict -> key: symbol | value: set of states
     self.is_accept: bool = accept_status
 
 class NFA:
@@ -17,18 +17,18 @@ class NFA:
 def single_char_nfa(char: str) -> NFA:
   start = State()
   accept = State(accept_status=True)
-  start.transistions[char].add(accept)
+  start.transitions[char].add(accept)
   return NFA(start, accept)
 
 def union_nfa(nfa1: NFA, nfa2: NFA) -> NFA:
   new_start = State()
   new_accept = State(accept_status=True)
   
-  new_start.transistions[epsilon].add(nfa1.start_state)
-  new_start.transistions[epsilon].add(nfa2.start_state)
+  new_start.transitions[epsilon].add(nfa1.start_state)
+  new_start.transitions[epsilon].add(nfa2.start_state)
   
-  nfa1.accept_state.transistions[epsilon].add(new_accept)
-  nfa2.accept_state.transistions[epsilon].add(new_accept)
+  nfa1.accept_state.transitions[epsilon].add(new_accept)
+  nfa2.accept_state.transitions[epsilon].add(new_accept)
   
   nfa1.accept_state.is_accept = False
   nfa2.accept_state.is_accept = False
@@ -36,7 +36,7 @@ def union_nfa(nfa1: NFA, nfa2: NFA) -> NFA:
   return NFA(new_start, new_accept)
 
 def concat_nfa(nfa1: NFA, nfa2: NFA) -> NFA:
-  nfa1.accept_state.transistions[epsilon].add(nfa2.start_state)
+  nfa1.accept_state.transitions[epsilon].add(nfa2.start_state)
   
   nfa1.accept_state.is_accept = False
   
@@ -46,11 +46,11 @@ def kleene_star_nfa(nfa: NFA) -> NFA:
   new_start = State()
   new_accept = State(accept_status=True)
   
-  new_start.transistions[epsilon].add(nfa.start_state)
-  new_start.transistions[epsilon].add(new_accept)
+  new_start.transitions[epsilon].add(nfa.start_state)
+  new_start.transitions[epsilon].add(new_accept)
   
-  nfa.accept_state.transistions[epsilon].add(nfa.start_state)
-  nfa.accept_state.transistions[epsilon].add(new_accept)
+  nfa.accept_state.transitions[epsilon].add(nfa.start_state)
+  nfa.accept_state.transitions[epsilon].add(new_accept)
   nfa.accept_state.is_accept = False
   
   return NFA(new_start, new_accept)
@@ -62,10 +62,10 @@ def plus_nfa(nfa: NFA) -> NFA:
   new_start = State()
   new_accept = State(accept_status=True)
 
-  new_start.transistions[epsilon].add(nfa.start_state)
+  new_start.transitions[epsilon].add(nfa.start_state)
   
-  nfa.accept_state.transistions[epsilon].add(nfa.start_state)
-  nfa.accept_state.transistions[epsilon].add(new_accept)
+  nfa.accept_state.transitions[epsilon].add(nfa.start_state)
+  nfa.accept_state.transitions[epsilon].add(new_accept)
   nfa.accept_state.is_accept = False
   
   return NFA(new_start, new_accept)
@@ -74,13 +74,13 @@ def plus_nfa(nfa: NFA) -> NFA:
 def optional_nfa(nfa: NFA) -> NFA:
   return union_nfa(nfa, epsilon_nfa())
 
-
-SPACE_CHAR = " "
+  
+SPACE_RE = "[ \t\n]"
 LETTER_RE = "[A-Za-z]"
 DIGIT_RE = "[0-9]"
 
 TOKEN_REGEX = [
-  ("SPACE", f"{SPACE_CHAR}+"),
+  ("SPACE", f"{SPACE_RE}+"), 
 
   ("KW_IF", "if"),
   ("KW_THEN", "then"),
@@ -130,7 +130,7 @@ def expand_char_class(regex: str):
     i += 2
    elif i + 2 < len(regex) and regex[i + 1] == '-' and regex[i + 2] != ']':
     start, end = ord(regex[i]), ord(regex[i + 2])
-    chars.extend(chr(unicode) for unicode in range(start, end))
+    chars.extend(chr(unicode) for unicode in range(start, end + 1))
     i += 3
    else:
      chars.append(regex[i])
@@ -207,7 +207,7 @@ def infix_to_postfix(regex: str):
       output.append(token)
     elif token_type == 'LPAREN_OP':
       stack.append(token)
-    elif token_type == 'RPAREN':
+    elif token_type == 'RPAREN_OP':
       while stack and stack[-1][0] != 'LPAREN_OP':
         output.append(stack.pop())  
       stack.pop() # remove left parantheses
@@ -253,18 +253,202 @@ def build_final_nfa(token_regex_list: list[tuple[str, str]]):
   start_state = State()
   for priority, (id, regex) in enumerate(token_regex_list):
     nfa = regex_to_nfa(regex)
-    nfa.accept_state.token_id = id
+    nfa.accept_state.token_name = id
     nfa.accept_state.token_priority = priority
-    start_state.transistions[epsilon].add(nfa.start_state)
+    start_state.transitions[epsilon].add(nfa.start_state)
     
   return NFA(start_state, State(accept_status=False))     
+# ─────────────────────────────────────────────────────────────
+# 5.  NFA → DFA  (Subset Construction [1 §3.7.1][3 §1.2])
+#
+# Key idea: each DFA state = a *set* of NFA states.
+# We use frozenset so we can store them in dicts/sets.
+# ─────────────────────────────────────────────────────────────
+
+def epsilon_closure(states):
+    """
+    Returns all NFA states reachable from 'states' via epsilon only.
+    Uses a simple stack-based search. [1 §3.7.1][3 §1.3]
+    """
+    closure = set(states)
+    stack   = list(states)
+    while stack:
+        s = stack.pop()
+        for target in s.transitions.get(epsilon, []):
+            if target not in closure:
+                closure.add(target)
+                stack.append(target)
+    return frozenset(closure)
+  
+  
+def move(states, symbol):
+    """Returns all NFA states reachable from 'states' on one real symbol. (Transition table)"""
+    result = set()
+    for s in states:
+        for target in s.transitions.get(symbol, []):
+            result.add(target)
+    return result
 
 
+def collect_alphabet(start):
+    """Walks the whole NFA to find every non-epsilon symbol used."""
+    visited  = set()
+    stack    = [start]
+    alphabet = set()
+    while stack:
+        s = stack.pop()
+        if id(s) in visited:
+            continue
+        visited.add(id(s))
+        for sym, targets in s.transitions.items():
+            if sym != epsilon:
+                alphabet.add(sym)
+            for t in targets:
+                if id(t) not in visited:
+                    stack.append(t)
+    return alphabet
 
+
+def winning_token(dfa_state):
+    """
+    Among all NFA accept states inside this DFA state, picks the one
+    with the lowest priority number (= earliest in TOKEN_LIST).
+    This implements the tie-breaking rule. [1 §3.8]
+    """
+    best = None
+    for nfa_state in dfa_state:
+        if nfa_state.is_accept and nfa_state.token_name is not None:
+            if best is None or nfa_state.token_priority < best.token_priority:
+                best = nfa_state
+    if best:
+        return (best.token_name, best.token_priority)
+    return None
+
+
+def build_dfa(nfa_start):
+    """
+    Subset construction: converts NFA to DFA. [1 §3.7.1][3 §1.2]
+
+    Returns three things:
+      dfa_start       — the starting DFA state (a frozenset of NFA states)
+      dfa_transitions — dict: frozenset -> { symbol -> frozenset }
+      dfa_accept      — dict: frozenset -> (token_name, priority)
+    """
+    alphabet  = collect_alphabet(nfa_start)
+    dfa_start = epsilon_closure([nfa_start])
+
+    dfa_transitions = {}   # DFA state -> { symbol -> DFA state }
+    dfa_accept      = {}   # accepting DFA states -> their token
+
+    worklist = [dfa_start]  # STEP 2 IN AQIL ALGORITHM
+    visited  = set()
+
+    while worklist:
+        current = worklist.pop()
+        if current in visited:
+            continue
+        visited.add(current)
+
+        dfa_transitions[current] = {}
+
+        # check if this DFA state is accepting
+        token_info = winning_token(current)
+        if token_info:
+            dfa_accept[current] = token_info
+
+        # compute one outgoing transition per symbol
+        for sym in alphabet:
+            next_nfa_states = move(current, sym)
+            next_dfa_state  = epsilon_closure(next_nfa_states)
+            if next_dfa_state:  # empty set means dead state — skip
+                dfa_transitions[current][sym] = next_dfa_state
+                if next_dfa_state not in visited:
+                    worklist.append(next_dfa_state)
+
+    return dfa_start, dfa_transitions, dfa_accept
+
+
+# ─────────────────────────────────────────────────────────────
+# 6.  SCANNER  (Maximal-Munch DFA Simulation [1 §3.8])
+#
+# For each position in the input, we run the DFA as far as
+# possible and use the LAST accepting state we passed through.
+# This is the "maximal munch" (longest match) rule.
+# ─────────────────────────────────────────────────────────────
+
+def scan(text, dfa_start, dfa_transitions, dfa_accept):
+    tokens = []
+    pos    = 0   # current position in text
+    line   = 1
+    col    = 1
+
+    print(f"{'Lexeme':<15} {'Token':<15} {'Position'}")
+    print("-" * 50)
+
+    while pos < len(text):
+        current_state = dfa_start
+        start_line    = line
+        start_col     = col
+
+        last_accept_pos   = None   # position after the last accepted character
+        last_accept_token = None
+
+        i = pos
+        # keep reading characters as long as the DFA has a valid transition
+        while i < len(text):
+            symbol     = text[i]
+            next_state = dfa_transitions.get(current_state, {}).get(symbol)
+            if next_state is None:
+                break                    # no transition — stop
+            current_state = next_state
+            i += 1
+            if current_state in dfa_accept:  # remember this accepting position
+                last_accept_pos   = i
+                last_accept_token = dfa_accept[current_state][0]
+
+        if last_accept_pos is None:
+            # no token matched at all — lexing error
+            print(f"\nLexing Error: unexpected character {repr(text[pos])} "
+                  f"at Line {line}, col {col}")
+            return tokens
+
+        lexeme = text[pos:last_accept_pos]
+
+        if last_accept_token != "SPACE":
+            tokens.append((lexeme, last_accept_token, start_line, start_col))
+            print(f"{repr(lexeme):<15} {last_accept_token:<15} "
+                  f"Line {start_line}, col {start_col}")
+
+        # advance the line/column counters by the matched lexeme
+        for ch in lexeme:
+            if ch == '\n':
+                line += 1
+                col   = 1
+            else:
+                col += 1
+        pos = last_accept_pos
+
+    print("\nLexing Completed")
+    return tokens
+
+
+# ─────────────────────────────────────────────────────────────
+# 7.  MAIN
+# ─────────────────────────────────────────────────────────────
 
 def main():
-  nfa = build_final_nfa(TOKEN_REGEX)
-  
-  with open("input.txt", "r") as file:
-    text = file.read()
-  # scan input.txt file from DFA    
+    # Step 1 — build one combined NFA from all token regexes
+    nfa = build_final_nfa(TOKEN_REGEX)
+
+    # Step 2 — convert the NFA to a DFA (subset construction)
+    dfa_start, dfa_transitions, dfa_accept = build_dfa(nfa.start_state)
+
+    # Step 3 — read the input file and scan it
+    with open("input.txt", "r") as f:
+        text = f.read()
+
+    scan(text, dfa_start, dfa_transitions, dfa_accept)
+
+
+if __name__ == "__main__":
+    main()
